@@ -1,0 +1,119 @@
+---
+title: "01-diversity"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load("clean_phy_dataset.Rdata")
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(patchwork)
+library(ggrepel)
+library(speedyseq)
+theme_set(theme_classic())
+```
+
+# Alpha diversity associations
+```{r 11-figure1-1 }
+alpha_breaks <- c(0, 1, 2, 4, 6, 8, 10, 20)
+
+figsdir  <- file.path(paste0(Sys.Date(), "_results"), "figures")
+
+dir.create(figsdir, showWarnings = FALSE)
+
+
+
+
+comparisons=list(c("Colitis", "No colitis"), c("Colitis", "nonIBD"), c("Colitis", "UC"), c("Colitis", "CD"), c("No colitis", "nonIBD"), c("nonIBD", "UC"), c("nonIBD", "CD"), c("UC", "CD"))
+
+#comparisons=list(c("Colitis", "nonIBD-symptomatic"), c("Colitis", "nonIBD-asymptomatic"), c("Colitis", "UC"), c("Colitis", "CD"), c("nonIBD", "UC"), c("nonIBD", "UC"), c("nonIBD", "CD"), c("nonIBD", "CD"), c("UC", "CD"))
+
+#FIGURE1
+#Case vs metaphlan alpha div 
+
+###
+stat.test.species <- sample_data(mpa_phy_colitis) %>%
+  as_tibble() %>% 
+  t_test(comparisons = comparisons, 
+         InvSimpson ~ case) %>%
+  adjust_pvalue(method = "BH")  %>%
+  add_xy_position(fun="max") %>% 
+  mutate(p.adj.round = round(p.adj, 4))
+
+p1b_alpha_species <- ggplot(sample_data(mpa_phy_colitis), aes(x=case, y=InvSimpson)) +
+  geom_boxplot(outlier.shape  = NA) +
+  geom_jitter(aes(color = case), width = 0.25, alpha = 0.5, size = 3) +
+  theme_classic() +  # cleans it up
+  stat_pvalue_manual(stat.test.species,step.increase = .1, 
+                      label = "p.adj.round", tip.length = 0.01,
+  ) +  
+  theme(axis.text=element_text(size=15, color = "black")) + 
+  theme(axis.title = element_text(size = 15)) +
+     scale_y_continuous(breaks = alpha_breaks) +
+  coord_cartesian(ylim = c(1, 30)) +
+ xlab("Group") +
+  ylab("Diversity (Metaphlan species alpha div)") +
+  theme(legend.position = "none")
+
+ggsave(p1b_alpha_species,  filename = file.path(figsdir, "species_alpha_by_case_group.pdf"), width = 9, height=6,
+)
+
+
+```
+
+
+### Beta diversity
+```{r 11-figure1-2 }
+
+ord_colitis <- ordinate(mpa_phy_colitis, method="PCoA", distance = "bray")
+ggsave(filename = file.path(figsdir, "beta_pcoa_by_case_colitis.pdf"), width = 6, height = 6,
+plot_ordination(mpa_phy_colitis, ord_colitis, color = "case")
+)
+
+
+
+
+```
+
+## Taxumap Beta diversity ##FIGURE 1
+```{R 11-figure1-3 }
+
+# sample_data(mpa_phy_colitis) %>% filter(is.na(GenusInvSimpson)) %>% summarise(n=n())
+
+case_colors <- scales::hue_pal()(5)
+case_colors[4] <- "navy"
+a<- ggplot(sample_data(mpa_phy_colitis), aes(x=taxumap1genus, y=taxumap2genus,color=case)) + geom_point() + 
+  scale_colour_manual(values=case_colors , "Group") +
+  labs(x="TaxUMAP1", y= "TaxUMAP2") 
+
+b<- ggplot(sample_data(mpa_phy_colitis), aes(x=taxumap1genus, y=taxumap2genus,color=cohort)) + geom_point() + 
+    labs(x="TaxUMAP1", y= "TaxUMAP2") +
+  scale_colour_discrete("Cohort") 
+
+ggplot(sample_data(mpa_phy_colitis), aes(x=taxumap1species, y=taxumap2species,color=case)) + geom_point() #+ stat_ellipse()
+ggplot(sample_data(mpa_phy_colitis), aes(x=taxumap1species, y=taxumap2species,color=cohort)) + geom_point()
+
+c <- ggplot(sample_data(mpa_phy_colitis) %>%as_tibble() %>% mutate(alphadiv=case_when(GenusInvSimpson <2 ~"AlphaDiv <2", GenusInvSimpson < 10 ~ "AlphaDiv<10", TRUE ~ "AlphaDiv>=10")), aes(x=taxumap1genus, y=taxumap2genus,color=alphadiv)) + geom_point() + 
+  scale_colour_discrete("Alpha Diversity") +
+  labs(x="TaxUMAP1", y= "TaxUMAP2") 
+
+
+design = "AAA
+BBB
+BBB
+CDE"
+
+ggsave(
+  plot_spacer() + p1b_alpha_species + a + b + c + 
+    plot_layout(design = design) + plot_annotation(tag_levels = "A"),
+  filename = file.path(figsdir,  "1_all.pdf"), width = 10, height = 14)
+
+
+```
+
+
+

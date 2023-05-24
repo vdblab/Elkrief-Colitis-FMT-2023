@@ -1,0 +1,93 @@
+---
+output:
+  word_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r 10-descriptive-1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load("clean_phy_dataset.RData")
+library(tidyverse)
+library(gtsummary)
+library(speedyseq)
+results_dir <- paste0(Sys.Date(), "_results")
+dir.create(results_dir)
+
+```
+
+# descriptive analyses
+## Cohort Summary
+```{r 10-descriptive-2 }
+these_names = c(names(msk_tracker), names(hmp_tracker)) %>% unique()
+ctab <- data.frame(
+  vals = these_names, 
+  MSK=rep(0, length(these_names)), 
+  HMP=rep(0, length(these_names))
+)
+for (n in these_names){
+  if (!is.null(msk_tracker[[n]])) ctab[ctab$vals == n, "MSK"] <- msk_tracker[[n]]
+  if (!is.null(hmp_tracker[[n]])) ctab[ctab$vals == n, "HMP"] <- hmp_tracker[[n]]
+}
+knitr::kable(ctab)
+```
+
+## Raw depth
+
+```{r}
+#for i in  /data/brinkvd/watersn/2022-10-25-colitis-bbw/logs/cluster/downsample/*//*.err ; do cat $i  | grep "+ nseqs=" | sed "s|$|\t$i|g" ; done >  /data/brinkvd/watersn/2022-10-25-colitis-bbw/depth_results.tsv
+#system("scp lilac:/data/brinkvd/watersn/2022-10-25-colitis-bbw/depth_results.tsv Data/")
+raw_depth <- read.csv("Data/depth_results.tsv", sep="\t", header = FALSE) %>% 
+  mutate(
+    depth=as.numeric(gsub(".*?(\\d+)", "\\1", V1)),
+    sample=gsub(".*sample\\=(.*).jobid.*", "\\1", V2),
+  )
+summary(raw_depth$depth)
+```
+
+
+
+
+```{R 10-descriptive-5 }
+
+
+sample_data(mpa_phy_colitis) %>% 
+  as_tibble()  %>% 
+  filter(!is.na(case)) %>% 
+  select(case, cohort) %>% 
+  tbl_summary(label=list(case ~ "Group"), by = cohort) 
+
+
+sample_data(mpa_phy_colitis) %>% 
+  as_tibble() %>%  filter(!is.na(case)) %>% 
+  filter(case=="Colitis") %>% 
+  select(age, sex, cancer_type_coded, cancer_stage, immunotherapy_type, grade_diarrhea, steroids) %>% 
+  tbl_summary(sort = list(everything() ~ "frequency"), label=list(age ~ "Age",
+                                                                  sex ~ "Sex",
+                                                                  cancer_type_coded ~ "Cancer type",
+                                                                  cancer_stage ~ "Cancer stage",
+                                                                  immunotherapy_type ~ "Immunotherapy type",
+                                                                  grade_diarrhea ~ "Grade of diarrhea (CTCAE v5)",
+                                                                  steroids ~ "Corticosteroids used for colitis")) %>% 
+
+  bold_labels()
+
+sample_data(mpa_phy_colitis) %>% 
+  as_tibble() %>%  filter(!is.na(case)) %>% 
+  filter(case=="No colitis") %>% 
+  select(age, sex, cancer_type, cancer_stage, immunotherapy_type, steroids) %>% 
+  tbl_summary(sort = list(everything() ~ "frequency"), label=list(age ~ "Age",
+                                                                  sex ~ "Sex",
+                                                                  cancer_type ~ "Cancer type",
+                                                                  cancer_stage ~ "Cancer stage",
+                                                                  immunotherapy_type ~ "Immunotherapy type",
+                                                                  steroids ~ "Corticosteroids used for colitis")) %>% 
+
+  bold_labels()
+
+
+
+```
+
+

@@ -1,0 +1,148 @@
+---
+title: "01-diversity"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r 12-figure2-relab-proteo-1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (interactive()) load("clean_phy_dataset.Rdata")
+library(tidyverse)
+library(ggpubr)
+library(patchwork)
+library(rstatix)
+library(speedyseq)
+figsdir  <- file.path(paste0(Sys.Date(), "_results"), "figures")
+
+these_colors <- asv_blast_color_genus$color
+names(these_colors) <- asv_blast_color_genus$color_label_group_distinct
+colitis_grades <- c( "No colitis", "Colitis Grade 1-2", "Colitis Grade 3")
+
+pdata <- tax_glom(mpa_phy_colitis, "Genus") %>% 
+  transform_sample_counts(~ . / sum(.)) %>%
+  phy_to_df() %>%  
+  left_join(asv_blast_color_genus, by = c("Genus" = "genus")) %>%
+  filter(case %in% c("Colitis", "No colitis")) %>% 
+  mutate(grade_coded = factor(case_when(
+    grade_coded == "0" ~ colitis_grades[1],
+    grade_coded == "1-2" ~ colitis_grades[2],
+    grade_coded == "3" ~ colitis_grades[3],
+    TRUE ~ "fix"
+  ), levels = colitis_grades, ordered = TRUE))
+
+
+(p_relab_genus <- ggplot(pdata,
+                         aes(x=reorder(paste(sampleid, rel_date_colitis), rel_date_colitis), 
+                             y=.abundance,
+                             fill=color_label_group_distinct) ) +
+    geom_bar(stat = "identity",position="fill",width = 1) +
+    theme_classic() +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
+          legend.position = "none") +
+    scale_fill_manual(values = these_colors) +
+    facet_grid(~grade_coded, scales = "free", space="free") +
+    scale_y_continuous(expand=c(0,0)) +
+    scale_x_discrete(expand=c(0,0)) +
+    labs(x="", y="Relative Abundance") +
+    theme(axis.text=element_text(size=10, color = "black")) +
+    theme(strip.text.x = element_text(size = 10))
+)
+ggsave(p_relab_genus,
+       filename = file.path(figsdir,  "2a_genus_relab.pdf"), width = 10, height = 5)
+
+
+###########odered
+# order by data
+
+sampleid_order_data <- pdata %>% select(grade_coded, sampleid, .otu, .abundance) %>% 
+  pivot_wider(names_from=.otu, values_from = .abundance) %>% 
+  group_by(grade_coded) %>% 
+  mutate(xorder=hclust(dist(cur_data()[, 3:ncol(cur_data())]), method = "complete")$order) %>% 
+  select(sampleid, xorder)
+(p_relab_genus_ordered <- ggplot(pdata %>%
+                                   left_join(sampleid_order_data),
+                        aes(x=reorder(sampleid, xorder), 
+                            y=.abundance,
+                            fill=color_label_group_distinct) ) +
+  geom_bar(stat = "identity",position="fill",width = 1) +
+  theme_classic() +
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "none") +
+  scale_fill_manual(values = these_colors) +
+  facet_grid(~grade_coded, scales = "free", space="free") +
+  scale_y_continuous(expand=c(0,0)) +
+  scale_x_discrete(expand=c(0,0)) +
+  labs(x="", y="Relative Abundance") +
+  theme(axis.text=element_text(size=10, color = "black")) +
+  theme(strip.text.x = element_text(size = 10))
+)
+ggsave(p_relab_genus_ordered,
+       filename = file.path(figsdir,  "genus_relab_clustered.pdf"), width = 10, height = 5)
+
+
+# (p_relab_genus_xtiles <- ggplot(
+#   pdata %>% 
+#     group_by(grade_coded,sampleid) %>% 
+#     mutate(indv_fill = ifelse(cur_group_id() %%2 ==0, "grey20", "grey80" )) %>% 
+#     ungroup() %>% 
+#     group_by(anonymized_id) %>% 
+#     mutate(label = ifelse(row_number()==2, anonymized_id, "")),
+#   aes(x=reorder(paste(sampleid, rel_date_colitis), rel_date_colitis), 
+#       y=1,
+#       fill=indv_fill) ) +
+#     geom_tile() + scale_fill_identity() +
+#     geom_text(aes(y=.5, label=label), angle=90, hjust=1, size=3) + 
+#     facet_grid(~grade_coded, scales = "free", space="free") +
+#     labs(x="", y="") + 
+#     theme(text = element_blank(),line = element_blank()
+#     )
+# )
+# 
+# ggsave(p_relab_genus_xtiles,
+#   filename = file.path(figsdir,  "2a_indv_label_blocks.pdf"), width = 10, height = .5)
+# 
+
+```
+
+
+
+
+## Proteobacteria
+```{R 12-figure2-relab-proteo-2 }
+pdata_phylum <-   subset_taxa(
+  tax_glom(
+    mpa_phy_colitis %>% transform_sample_counts(~ . / sum(.)), "Phylum"), 
+  Phylum == "Proteobacteria") %>% 
+  phy_to_df()
+                                           
+stat.test <- pdata_phylum %>% 
+  wilcox_test(comparisons = comparisons, 
+         .abundance ~ case) %>%
+  adjust_pvalue(method = "BH")  %>%
+  add_xy_position(fun="mean_ci") %>% 
+  mutate(p.adj.round = round(p.adj, 4))
+
+these_
+(p_proteo <- pdata_phylum %>% ggplot(aes(x=case, y=log10(.abundance))) + 
+  geom_boxplot(outlier.colour = NA) + 
+  geom_jitter(aes(color=case), height = 0, width = .2) +
+  geom_jitter(data=pdata_phylum %>% filter(.abundance == 0) %>% mutate(.abundance=.00001), height = 0, width = .2, color="grey") +
+  stat_pvalue_manual(size = 3,
+    step.increase = .05, 
+    stat.test, label = "p", tip.length = 0.01,
+    hide.ns = FALSE
+  ) + 
+  labs(y = "Relative abundance of Proteobacteria",
+       x = "") +
+  scale_colour_discrete("Group")+
+  scale_y_continuous(
+    breaks=log10(c(.0001, .001, .01,.1,1)), labels=c(.0001, .001, .01,.1,1),
+    expand = expansion(mult = c(0.01, 0.1))) +
+      theme_classic() )
+ggsave(p_proteo,
+       filename = file.path(figsdir,  "2c_proteobactera_by_group.pdf"), width = 9, height = 6)
+
+```

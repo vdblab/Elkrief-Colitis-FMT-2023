@@ -1,0 +1,2 @@
+# This script is not publicly released.  It describes the preparation of metadata which involves protected health information.  
+# If you have any questions about how the resulting data objects were created, please contact watersn@mskcc.org

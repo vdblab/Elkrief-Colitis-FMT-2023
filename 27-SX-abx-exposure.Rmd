@@ -1,0 +1,60 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-05-02"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup-abx, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(speedyseq)
+library(tidyverse)
+library(vdbR)
+theme_set(theme_bw())
+load("clean_phy_dataset.RData")
+
+
+
+alldf <- full_join(
+  abx %>% select(anonymized_id, start_day_rel_colitis, drug_name_clean) %>% 
+    mutate(anonymized_id= as.character(anonymized_id)) %>%
+    group_by (anonymized_id, drug_name_clean) %>% summarize(most_recent_exposure = min(start_day_rel_colitis), .groups = "drop") %>% 
+    pivot_wider( values_from = most_recent_exposure, names_from=drug_name_clean) %>%
+    mutate(n_abx = rowSums(!is.na(.))),
+  sample_data(mpa_phy_colitis) %>% data.frame()%>% filter(cohort == "MSK") 
+) %>% mutate(case = as.character(case))
+
+ggplot(alldf, aes(x=case, y=InvSimpson, fill=!is.na(n_abx))) + 
+  geom_boxplot(color="black", outlier.colour = NA) + 
+  geom_point(size=4,  position = position_jitterdodge(jitter.width = .1) ) + scale_fill_manual(values = c("FALSE"="white", "TRUE"="grey80"), ) + 
+  labs(x="", y="Inverse Simpson\n(Metaphlan)", fill="Antibiotic", color="Antibiotic") +
+  ggpubr::stat_compare_means(method = "wilcox") +
+  guides(fill=guide_legend(override.aes=list(color=NA)))
+
+  
+
+library(gtsummary)
+
+alldf %>% select(anonymized_id, case, n_abx) %>% group_by(case, anonymized_id) %>% summarize(any_abx = !is.na(n_abx), .groups="drop") %>% select(-anonymized_id) %>% tbl_summary(by = case)   %>% add_p()
+
+#Table of antibiotics
+abx_anno <- abx  %>% full_join(sample_data(mpa_phy_colitis) %>% data.frame()%>% filter(cohort == "MSK") %>% select(anonymized_id, case) %>% mutate(anonymized_id = as.numeric(anonymized_id), case=as.character(case))) 
+
+abx_anno %>% select(anonymized_id,drug_name_clean, case ) %>% 
+  distinct() %>% 
+  select(-anonymized_id) %>%  tbl_summary(by = case)   
+abx_group_tbl_data <- abx_anno %>% 
+  select(anonymized_id,broad_class, case )   %>%
+  distinct() %>% 
+  mutate(broad_class = ifelse(is.na(broad_class), "None", broad_class)) %>%
+  mutate(dummy=TRUE) %>% 
+  pivot_wider(names_from=broad_class, values_from = dummy, values_fill = FALSE) 
+
+ abx_group_tbl_data %>%  select(-anonymized_id) %>% tbl_summary(by = case)   
+ 
+ # write out colitis metadata
+write.csv(sample_data(mpa_phy_colitis) %>% as_tibble() %>%  select(anonymized_id, .sample, case ) %>% left_join(colitis_metadata %>% select( mrn, anonymized_id) %>% distinct() ), file = "colitis_noColitis_sample_metadata.csv")
+write.csv(sample_data(mpa_phy_fmt) %>% as_tibble() %>%  select(Comments, .sample ), file = "fmt_sample_metadata.csv")
+
+```

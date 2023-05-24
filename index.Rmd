@@ -1,0 +1,27 @@
+---
+title: "Analysis for Elkrief, _et al_ 2023"
+date: "`r Sys.Date()`"
+output:
+  bookdown::gitbook: 
+    css: pagewidth.css
+    fig_width: 10
+    fig_height: 6
+editor_options: 
+  chunk_output_type: console
+documentclass: book
+site: bookdown::bookdown_site
+---
+# Analysis for Elkrief, _et al_ 2023
+
+
+## Sample processing
+
+All MSK samples were processed using Anadama/Biobakery Workflows as described in `preprocessing/README.md`.
+In short, Anadama was installed from <https://github.com/nickp60/anadama2/commit/92d72517a1663cc86f7cf922539b53f6fcd4e2b2> to run on our LSF-based cluster.  The snakemake workflow runs the wmgx biobakery-workflow, bypassing strain profiling, after downsampling to match the median depth of the HMP sequencing for samples exceeding 10M reads.  The workflow reads the hmp2 metadata file subsetted to the metagenomic samples, and uses the accessions in the metadata file to download the processed outputs from https://ibdmdb.org.  Pipeline results and hmp processed outputs are post-processed together, aggregated, and bundled for transfer.
+```
+snakemake --profile ~/GitHub/vdblab-pipelines/msk-lsf/ --directory /data/brinkvd/watersn/2022-10-25-colitis-bbw/ 
+```
+
+## Data preprocessing
+
+The `prepare-data.R` script contains the code to access internal MSK resources to create the phyloseq objects used in this analysis.  This script must be executed first, and it will create a file called `clean_phy_dataset.Rdata` which is used by the subsequent Rmd notebooks.  All analysis results are put in a dated results folder.

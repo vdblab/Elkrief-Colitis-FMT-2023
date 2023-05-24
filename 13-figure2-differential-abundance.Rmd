@@ -1,0 +1,463 @@
+---
+title: "Differential Abundance"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+# Differential abundance
+```{r 13-figure2-differential-abundance-1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggrepel)
+library(tidyverse)
+library(speedyseq)
+if (interactive()) load("clean_phy_dataset.RData")
+results_dir <- paste0(Sys.Date(), "_results")
+dir.create(results_dir)
+```
+
+
+```{r 13-figure2-differential-abundance-2 }
+make_bubble_plot_with_trees <- function(fig_data_pre, qval_threshold = .05, taxrank="Genus" ){
+  # 
+  if (!taxrank %in% c("Family", "Genus", "Species")){
+    stop("taxrank must be either Family, Genus, or Species")
+  }
+  # Add cladogram to Maaslin2 results
+  any_sig <- fig_data_pre %>% group_by(feature) %>% filter(any(qval < qval_threshold)) %>% pull(feature) %>% unique()  
+  plot_dat_clustering <- fig_data_pre %>% filter(feature %in% any_sig) %>%
+    select(feature, metadata, value, coef ) %>%
+    pivot_wider(names_from=c(metadata, value), values_from=coef) %>%
+    column_to_rownames("feature") %>%
+    as.matrix() %>%
+    dist(.) %>%
+    hclust() %>%
+    as.dendrogram()
+  alpha_levels <- c(".0001 or less", ".001", ".01", ".05", ".05 or above")
+  
+  alpha_breaks <- rev(c(.15, .5, .62, .7, .85))
+  
+  fig_data <- fig_data_pre %>%
+    mutate(feature = factor(feature, levels = labels(plot_dat_clustering))) %>%
+    filter(feature %in% any_sig) %>%
+    mutate(
+      qval_bin = as.factor(case_when(
+        qval <.0001 ~ alpha_levels[1],
+        qval <.001 ~ alpha_levels[2],
+        qval <.01 ~ alpha_levels[3],
+        qval <.05 ~ alpha_levels[4],
+        qval >=.05 ~ alpha_levels[5])
+      )
+    ) 
+  if (taxrank == "Species") {
+    frm <- ~Kingdom/Phylum/Class/Order/Family/Genus/Species  
+    taxlevs_for_labs <- c( "Genus",  "Family", "Order", "Class", "Phylum")
+    taxlevs_to_drop <- c( ".otu")
+  } else if (taxrank == "Genus") {
+    frm <- ~Kingdom/Phylum/Class/Order/Family/Genus  
+    taxlevs_for_labs <- c("Family", "Order", "Class", "Phylum")
+    taxlevs_to_drop <- c( ".otu", "Species")
+  } else if (taxrank == "Family") {
+    frm <- ~Kingdom/Phylum/Class/Order/Family
+    taxlevs_for_labs <- c("Order", "Class", "Phylum")
+    taxlevs_to_drop <- c( ".otu", "Genus", "Species")
+  }
+
+  # dont forget the as.data.frame() for easier subsetting later
+  tax_for_clado_pre <- tax_table(mpa_phy_colitis) %>% as_tibble()
+  tax_for_clado <- tax_for_clado_pre[tax_for_clado_pre[[taxrank]] %in% any_sig,] %>% 
+    select(-all_of(taxlevs_to_drop)) %>% 
+    distinct() %>%  
+    mutate(root="root", 
+           Family=ifelse(is.na(Family), paste0("o_", Order), Family)) %>% 
+    select(root, everything()) %>% as.data.frame()
+  
+  
+  
+  
+   tr <- ape::as.phylo(frm, data = tax_for_clado %>% mutate(across(colnames(.), as.factor )), collapse = FALSE)
+  # This doesn't plot internal nodes with single descendants, which is a real downer :(
+  if (FALSE)  {
+    plot(tr, show.node.label = TRUE, )
+  }
+  
+  # from: http://blog.phytools.org/2012/01/function-to-get-descendant-node-numbers.html
+  getDescendants<-function(tree,node,curr=NULL){
+    if(is.null(curr)) curr<-vector()
+    daughters<-tree$edge[which(tree$edge[,1]==node),2]
+    curr<-c(curr,daughters)
+    w<-which(daughters>=length(tree$tip))
+    if(length(w)>0) for(i in 1:length(w))
+      curr<-getDescendants(tree,daughters[w[i]],curr)
+    return(curr)
+  }
+  
+  # ladderize F is needed: https://github.com/YuLab-SMU/ggtree/issues/157
+  ptr <- ggtree::ggtree(tr, ladderize = FALSE) +xlim(c(-1, nrow(tax_for_clado)*.3)) 
+  
+  for (lev in taxlevs_for_labs){
+    # this is how much we separate the taxonomix ranks by, visually
+    thisoffset = which(taxlevs_for_labs==lev)
+    # for each taxon
+    for (taxon in unique(tax_for_clado[, lev])){
+      # get the node in the tree
+      nodeid = which(tr$node.label == taxon) 
+      # This is messy
+      # Node labels start at the number of tips. So if your tree has
+      # 10 tips, node numbers start at 11.  see tr$Nnode, length(tr$tip.label), and ptr$data$node 
+      # So first step is to use this getDescendants function to get a list of descendant tips
+      descendant_tips = getDescendants(tr, nodeid + ape::Ntip(tr))
+      # however, that will also include descendent nodes, so we get rid of those
+      # by retaining those with tip labels >= number of tips to exclude nodes
+      descendant_tips <- descendant_tips[which(descendant_tips <= ape::Ntip(tr))]
+      # to prevent clutter, we only plot labels for groups with more than three descendents
+      if (length(descendant_tips) > 3){
+        # plot the bars and bar labels separate so we can change the color and center the text
+        # using the offset.text arg
+        # bars:
+        ptr <- ptr + ggtree::geom_cladelabel(node=nodeid + ape::Ntip(tr), label=taxon, align=TRUE, angle=270, hjust='center', offset=0 + thisoffset, offset.text=-.04, barsize=4, fontsize = 0, color="grey90", ) 
+        # labels:
+        ptr <- ptr + ggtree::geom_cladelabel(node=nodeid + ape::Ntip(tr), label=taxon, align=TRUE, angle=270, hjust='center', offset=0 + thisoffset, offset.text=-.06, barsize=0, fontsize = 2, color="black", ) 
+      }
+    }
+  }
+  
+  
+  
+  # the mutate line below is the re-ordering magic
+  pbytree <- ggplot(fig_data %>% 
+                    mutate(feature = factor(feature, levels = rev(tr$tip.label))),
+                    aes(y=value, 
+                        x=feature, 
+                        alpha = qval_bin, 
+                        color = ifelse(coef >0, "Increase", "Decrease"), 
+                        #fill = sign(coef), 
+                        size=abs(coef) )) +
+    geom_point(stroke=0) +
+    scale_color_manual(values=c("blue", "red")) + 
+    theme(plot.caption = element_text(hjust=0) ,
+          axis.text.x = element_text(angle=90, hjust=1, vjust=.3),
+          plot.background = element_rect(fill="white"),
+          panel.background = element_rect(fill="white"),
+          plot.title = element_text(size=6)
+    ) + 
+    scale_alpha_manual(values=alpha_breaks, breaks = alpha_levels) + 
+    labs(x=taxrank, y="Group", color="Change Relative \nto non-IBD", size="Magnitude", alpha="P-value\n(BH-corrected)",  
+         title = "") + 
+    guides(color=guide_legend(override.aes=list(fill=NA, size=3)),
+           alpha=guide_legend(override.aes=list(fill=NA, size=3))) +
+    theme(
+      legend.key=element_blank(),
+      legend.background=element_blank())
+  return(list("tree"=ptr,
+              "bubble"=pbytree))
+}
+```
+
+
+```{r 13-figure2-differential-abundance-3 }
+abundance_threshold = 0
+prevalence_threshold = .1
+
+make_labeled_filtered_otu_table <- function(phy,taxrank="Species", abundance_threshold, prevalence_threshold, return_phy=FALSE){
+  # aggretate to a taxonomic rank
+  tmp_phy = speedyseq::tax_glom(phy, taxrank = taxrank)
+  # do the joint abundance  prevalence filtering
+  tmp_phy_filt = filter_taxa(tmp_phy,fun =  function(x) (sum(x > abundance_threshold)) > (prevalence_threshold*length(x)), prune = TRUE) 
+  if (return_phy){ return(tmp_phy_filt)}
+  # make a table for maaslin2
+  input <- tmp_phy_filt %>% 
+    otu_table() %>% t() %>% as.data.frame()
+  # rename the columns
+  colnames(input) <- as_tibble(tax_table(tmp_phy_filt))[[taxrank]]
+  return(input)
+}
+
+input_species <- make_labeled_filtered_otu_table(
+  mpa_phy_colitis, taxrank = "Species", 
+  abundance_threshold = 0,
+  prevalence_threshold = prevalence_threshold
+)
+
+input_genus <- make_labeled_filtered_otu_table(
+  mpa_phy_colitis, taxrank = "Genus", 
+  abundance_threshold = abundance_threshold,
+  prevalence_threshold = prevalence_threshold
+)
+input_family <- make_labeled_filtered_otu_table(
+  mpa_phy_colitis, taxrank = "Family", 
+  abundance_threshold = abundance_threshold,
+  prevalence_threshold = prevalence_threshold
+)
+
+
+input_meta_data <- sample_data(mpa_phy_colitis) %>% as_tibble() %>% 
+  select(anonymized_id, cohort, sampleid, case, rel_date_colitis)  %>%
+  distinct() %>% 
+  filter(is.na(rel_date_colitis) | (!is.na(rel_date_colitis) & rel_date_colitis <= 60)) %>%
+  column_to_rownames("sampleid") 
+
+datasets = list(
+  "Family" = input_family,
+  "Genus" = input_genus, 
+  "Species" = input_species)
+metadata_datasets = list(
+  "full" = input_meta_data,
+  "just_msk_and_nonibd" = input_meta_data %>% filter(case %in% c("Colitis", "No colitis", "nonIBD")))
+
+maaslin_results <- list("full"=list(), "just_msk_and_nonibd"=list())
+
+for (i in 1:length(datasets)){
+  this_name = names(datasets)[i]
+  for (j in 1:length(metadata_datasets)){
+  this_metadata_name = names(metadata_datasets)[j]
+  output_path <- file.path(
+    results_dir, 
+    str_glue("{Sys.Date()}-{this_metadata_name}-maaslin-cohort-fixed-{this_name}")
+  )
+  tmp <- Maaslin2::Maaslin2(
+    input_data = datasets[[i]],
+    input_metadata = metadata_datasets[[j]], 
+    output = output_path,
+    min_abundance = 0, 
+    min_prevalence = 0,
+    normalization = "TSS",
+    transform = "LOG",
+    analysis_method = "LM",
+    max_significance = 0.25,
+    fixed_effects = c("case", "cohort"),
+    correction = "BH",
+    reference = "case,nonIBD",
+    standardize = TRUE,
+    cores = 1,
+    plot_heatmap = TRUE,
+    plot_scatter = FALSE,
+  )
+  maaslin_results[[this_metadata_name]][[this_name]] <- tmp
+  these_plots <- make_bubble_plot_with_trees(
+    fig_data_pre=tmp$results,
+    taxrank = this_name,
+    )
+
+  ggsave(these_plots$tree+ ggtree::geom_tiplab(), filename = file.path(output_path, "tree_with_labels.pdf"))
+  ggsave(these_plots$tree, filename = file.path(output_path, "tree.pdf"), width = 4, height=12)
+  ggsave(these_plots$bubble, filename = file.path(output_path, "bubbleplot_by_taxonomy.pdf"), width = 12, height=4)
+         
+  }
+}  
+  
+
+ 
+# # make bad volcano plots
+# ggplot(all_maaslin_res %>%
+#          filter(qval < qval_threshold ) %>%
+#          filter(metadata == "case") %>%
+#          mutate(lab = ifelse(qval < .05 & abs(coef) > .75, str_glue("{feature}-{value}"), "")) ,
+#        aes(x=coef, y=log(qval), label=lab, color=value)) + geom_point()  + 
+#   geom_hline(yintercept = log(.05), linetype="dashed")  +
+#   geom_vline(xintercept = 0, color="black") + 
+#   scale_y_reverse() + 
+#   geom_text_repel(max.overlaps = 50) +theme_classic()
+
+# ggplot(all_maaslin_res %>%
+#          filter(qval < .05 ) %>%
+#          filter(metadata == "case") %>%
+#          mutate(lab = ifelse(qval < .05 & abs(coef) > .75, str_glue("{feature}"), "")) ,
+#        aes(x=coef, y=log(qval), label=lab, color=value)) + geom_point()  + 
+#   geom_hline(yintercept = log(.05), linetype="dashed")  +
+#   geom_vline(xintercept = 0, color="black") + 
+#   scale_y_reverse() + 
+#   geom_text_repel(max.overlaps = 50) +theme_classic() +
+#   facet_wrap(~value)
+
+
+
+
+```
+
+
+
+## Prepare data for Lefse
+```{r 13-figure2-differential-abundance-4 }
+lefse_dir <- file.path(results_dir, "lefse")
+dir.create(lefse_dir, showWarnings = FALSE)
+#Lefse
+
+#LEfSe - Object containing all 
+
+library(data.table)
+
+n_samples <- n_distinct(row.names(input_meta_data))
+
+genera_of_interest <- colnames(input_genus)
+
+
+# asv_annotation_blast_ag[, taxon_ref := sprintf("k__%s|p__%s|c__%s|o__%s|f__%s|g__%s",
+#                                                kingdom, phylum, class, 
+#                                                ordr, family, genus)];
+# all_metaphlan_t <- read.delim(file.path(results_dir, "2022-10-26-clean-metaphlan_merged_biobakery_workflow.tsv"), header = TRUE, comment.char = "#") %>% 
+#   select(-1, -NCBI_tax_id) %>% column_to_rownames("clade_name")%>%  t()
+# colnames(all_metaphlan) <- gsub("^X(\\d.*)", "\\1", colnames(all_metaphlan))
+
+
+# unpack levels of taxonomy
+hierachical_relab_pre <- bind_rows(
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Kingdom") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Phylum") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Class") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Order") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Family") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Genus") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Species") %>% phy_to_df(),
+  ) %>% 
+  mutate(clade_name_raw = sprintf("k__%s|p__%s|c__%s|o__%s|f__%s|g__%s|s__%s",
+                                              Kingdom, Phylum, Class, 
+                                               Order, Family, Genus, Species)) %>% 
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name_raw)) %>% # clean up Species NAs
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name)) %>%  # clean up Genus NAs
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name)) %>%  # clean up family NAs
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name)) %>%  # clean up order NAs
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name)) %>%  # clean up class NAs
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name)) %>%  # clean up Phylum NAs
+  mutate(clade_name = gsub("\\|.__NA$", "", clade_name))      # clean up Kingdom NAs
+
+# sanity check values; sums should all be the same
+hierachical_relab_pre %>% filter(is.na(Genus) & !is.na(Family)) %>% group_by(.sample) %>% summarize(thissum=sum(.abundance))  %>% summary(.$thissum)
+hierachical_relab_pre %>% filter(is.na(Family) & !is.na(Order)) %>% group_by(.sample) %>% summarize(thissum=sum(.abundance))  %>% summary(.$thissum)
+hierachical_relab_pre %>% filter(is.na(Order) & !is.na(Class)) %>% group_by(.sample) %>% summarize(thissum=sum(.abundance))  %>% summary(.$thissum)
+
+
+hierachical_relab <- hierachical_relab_pre  %>% 
+  select(.sample, case, clade_name, .abundance) %>% 
+  arrange(.sample, clade_name)
+
+  
+hierachical_relab %>% 
+  filter(case=="Colitis" | case=="nonIBD") %>% 
+  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  t() %>% 
+  write.table(file.path(lefse_dir, "lefse_all_colitis_nonIBD.txt"),sep="\t",quote = F,col.names = F)
+
+hierachical_relab %>% 
+  filter(case=="Colitis" | case=="CD") %>% 
+  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>% 
+  t() %>% 
+  write.table(file.path(lefse_dir, "lefse_all_colitis_CD.txt"),sep="\t",quote = F,col.names = F)
+
+hierachical_relab %>% 
+  filter(case=="Colitis" | case=="UC") %>% 
+  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  t() %>% 
+  write.table(file.path(lefse_dir, "lefse_all_colitis_UC.txt"),sep="\t",quote = F,col.names = F)
+
+hierachical_relab %>% 
+  filter(case=="Colitis" | case=="No colitis") %>% 
+  mutate(case=gsub(" ", "_", case)) %>% 
+  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  t() %>% 
+  write.table(file.path(lefse_dir, "lefse_all_colitis_NoColitis.txt"),sep="\t",quote = F,col.names = F)
+
+hierachical_relab %>% 
+  filter(case %in% c("Colitis", "No colitis", "nonIBD")) %>% 
+  mutate(case=gsub(" ", "_", case)) %>% 
+  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  t() %>% 
+  write.table(file.path(lefse_dir, "lefse_all_colitis_NoColitis_nonIBD.txt"),sep="\t",quote = F,col.names = F)
+
+
+```
+
+
+
+### Running Lefse
+```{r 13-figure2-differential-abundance-5 }
+# encoding "subject" as 1, the sample column, as these are run on 1-sample-per-person.  Lefse throws index errors if you try to encode it with -1 as described in the help.
+# The -v $PWD binds the current working directory to the docker container so it can read and write to your file system
+
+
+lefse_docker_image <- "ghcr.io/vdblab/lefse:1.1.2"
+for (dataset in c(
+  file.path(lefse_dir, "lefse_all_colitis_nonIBD.txt"),
+  file.path(lefse_dir, "lefse_all_colitis_UC.txt"),
+  file.path(lefse_dir, "lefse_all_colitis_CD.txt"),
+  file.path(lefse_dir, "lefse_all_colitis_NoColitis.txt"),
+  file.path(lefse_dir, "lefse_all_colitis_NoColitis_nonIBD.txt")
+)) {
+  dataset_pre <- gsub(".txt", "", basename(dataset))
+  system(str_glue("docker run --rm -v \"$PWD\":\"$PWD\" {lefse_docker_image} lefse_format_input.py  \"$PWD/{dataset}\" \"$PWD/{results_dir}/lefse/{dataset_pre}.input\" -c 2 -s -1 -u 1 -o 1000000"))
+  system(str_glue("docker run --rm -v \"$PWD\":\"$PWD\" {lefse_docker_image} lefse_run.py \"$PWD/{results_dir}/lefse/{dataset_pre}.input\" \"$PWD/{results_dir}/lefse/{dataset_pre}.output\""))
+  system(str_glue("docker run --rm -v \"$PWD\":\"$PWD\" {lefse_docker_image} lefse_plot_res.py --format pdf \"$PWD/{results_dir}/lefse/{dataset_pre}.output\" \"$PWD/{results_dir}/lefse/{dataset_pre}.bar.pdf\""))
+  system(str_glue("docker run --rm -v \"$PWD\":\"$PWD\" {lefse_docker_image} lefse_plot_cladogram.py --format pdf \"$PWD/{results_dir}/lefse/{dataset_pre}.output\" \"$PWD/{results_dir}/lefse/{dataset_pre}.cladogram.pdf\""))
+  
+  lefse_results <- read.csv(gsub(".txt", ".output", dataset), sep="\t", col.names = c("taxon", "groupmax", "group", "LDA", "p.adj"), header = FALSE) %>% filter(group != "")
+  
+  threshold <- quantile(lefse_results$LDA)["75%"]
+  plot_data <- lefse_results %>% filter(LDA >= threshold) %>%
+    mutate(LDA=ifelse(as.numeric(as.factor(group)) == 1, LDA, -LDA),
+           taxlabel=gsub(".*\\.", "", taxon))
+  if (n_distinct(plot_data$group) <=2){
+    ggsave(width=6, height=10,
+      filename = gsub(".txt", ".bar.75th.pdf", dataset), ggplot(plot_data, aes(x=LDA, y=reorder(desc(taxon), LDA), fill=group)) + geom_bar(stat="identity") + 
+        scale_fill_manual(values=c("forestgreen", "red")) + 
+        scale_x_continuous(n.breaks = 8) + 
+        geom_text(data=plot_data %>% mutate(taxlabel = ifelse(LDA > 0, taxlabel, "")), aes(label=taxlabel,  x=0), hjust=1, nudge_x = -.1) +
+        geom_text(data=plot_data %>% mutate(taxlabel = ifelse(LDA < 0, taxlabel, "")), aes(label=taxlabel, x=0), hjust=0, nudge_x = .1)  + 
+        theme(axis.line.y = element_blank(),
+              axis.ticks.y = element_blank(),
+              axis.text.y = element_blank(),
+              axis.title.y = element_blank(),
+              panel.grid.major.x = element_line(color="gray80"),
+              panel.grid.minor.x = element_line(color="gray80")
+        ) + 
+        labs(x="LDA Score (Log10)")
+    )
+  }
+}
+
+for (dataset in c(file.path(lefse_dir, "lefse_all_colitis_nonIBD.txt"), file.path(lefse_dir, "lefse_all_colitis_noColitis.txt") )){
+  lefse_results <- read.csv(gsub(".txt", ".output", dataset), sep="\t", col.names = c("taxon", "groupmax", "group", "LDA", "p.adj"), header = FALSE) %>% filter(group != "") %>%
+    mutate(taxlabel=gsub(".*\\.", "", taxon))
+  group_colors = c("Colitis"="forestgreen", "nonIBD"="blue", "No_colitis"="red" )
+  theme_set(theme_classic())
+  plot_data <- lefse_results %>%
+    group_by(group) %>% arrange(desc(LDA)) %>% slice(1:10) %>%
+    ungroup() %>% 
+    mutate(LDA=ifelse(as.numeric(as.factor(group)) == 1, LDA, -LDA))
+  ggsave(width=8, height = 6,
+         filename = gsub(".txt", ".bar.top10.pdf", dataset), ggplot(plot_data, aes(x=LDA, y=reorder(desc(taxon), LDA), fill=group)) + geom_bar(stat="identity") + 
+           scale_fill_manual(values=group_colors, drop = TRUE, limits=force) + 
+           scale_x_continuous(n.breaks = 8) + 
+           geom_text(data=plot_data %>% mutate(taxlabel = ifelse(LDA > 0, taxlabel, "")), aes(label=taxlabel,  x=0), hjust=1, nudge_x = -.1) +
+           geom_text(data=plot_data %>% mutate(taxlabel = ifelse(LDA < 0, taxlabel, "")), aes(label=taxlabel, x=0), hjust=0, nudge_x = .1)  + 
+           theme(axis.line.y = element_blank(),
+                 axis.ticks.y = element_blank(),
+                 axis.text.y = element_blank(),
+                 axis.title.y = element_blank(),
+                 panel.grid.major.x = element_line(color="gray80"),
+                 panel.grid.minor.x = element_line(color="gray80")
+           ) + 
+           labs(x="LDA Score (Log10)")
+  )
+  # full plot with new colors
+  ggsave(width=8, height=nrow(lefse_results)/4,
+         filename = gsub(".txt", "newcolors.pdf", dataset), 
+         ggplot(lefse_results %>% 
+                  mutate(LDA=ifelse(as.numeric(as.factor(group)) == 1, LDA, -LDA)), aes(x=LDA, y=reorder(desc(taxon), LDA), fill=group)) + geom_bar(stat="identity") + 
+           scale_fill_manual(values=group_colors, drop = TRUE, limits=force) + 
+           scale_x_continuous(n.breaks = 8) + 
+           geom_text(data=lefse_results %>% mutate(taxlabel = ifelse(as.numeric(as.factor(group)) == 1, taxlabel, "")), aes(label=taxlabel,  x=0), hjust=1, nudge_x = -.1) +
+           geom_text(data=lefse_results %>% mutate(taxlabel = ifelse(as.numeric(as.factor(group)) != 1 , taxlabel, "")), aes(label=taxlabel, x=0), hjust=0, nudge_x = .1)  + 
+           theme(axis.line.y = element_blank(),
+                 axis.ticks.y = element_blank(),
+                 axis.text.y = element_blank(),
+                 axis.title.y = element_blank(),
+                 panel.grid.major.x = element_line(color="gray80"),
+                 panel.grid.minor.x = element_line(color="gray80")
+           ) + 
+           labs(x="LDA Score (Log10)")
+  )
+  
+}
+
+
+
+```

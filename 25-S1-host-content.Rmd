@@ -1,0 +1,49 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+# FMT  Host content figure
+
+```{r 25-S1-host-content-1 }
+load(file = "clean_phy_dataset.RData")
+library(tidyverse)
+library(tidytext)
+results_dir <- paste0(Sys.Date(), "_results")
+
+knead_and_meta <- sample_data(mpa_phy_fmt) %>% 
+  as_tibble() %>% 
+  mutate(
+    first_samp = min(Delta_date2, na.rm = TRUE),
+    order_delta=ifelse(is.na(dfmt1), first_samp- (100/(row_number())), dfmt1)
+  )
+
+
+
+
+(pknead <- ggplot(knead_and_meta,
+                  aes(x=reorder_within(label, by = order_delta, within=pat, group=Comments),
+                      y=100-pct_human,
+                      color=InvSimpson  )) +
+    #geom_line() +
+    geom_jitter(height = 0, width = 0, alpha=.8, size=4) +
+    scale_x_reordered() +
+    facet_grid(~pat, scales = "free", space = "free", labeller = labeller(.cols=function(x) paste0("Patient ", x))) +
+    theme_classic() +
+    scale_color_gradientn(values = c(0, .2, 1), colours = c("red", "firebrick4", "black")) +
+    #scale_y_log10() +
+    theme(panel.grid.major = element_line(color="gray90"),
+          axis.text.x = element_text(angle=45, hjust=1),
+
+          # legend.position = c(.1, .3),
+          legend.background = element_rect(color="white"))  +
+    labs(
+      x="Patient(day relative to transplant(s))",
+      y="Percent reads retained\nafter human read removal",
+      color="Inv. Simpson\nIndex"
+    )
+  )
+
+ggsave(pknead, filename = file.path(results_dir, "SX-host_filtering.pdf"), width = 7, height = 5)
+
+```
