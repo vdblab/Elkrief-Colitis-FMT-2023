@@ -1,0 +1,112 @@
+---
+title: "Signatures of FMT"
+output: html_document
+date: "2023-07-21"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load("clean_phy_dataset.Rdata")
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(patchwork)
+library(ggrepel)
+library(speedyseq)
+theme_set(theme_classic())
+
+```
+
+
+# Caveats and justifications
+ - pt 1 first fmt did not engraft, so we referenced pre/post to the second date
+ - we considered samples collected the day after FMT to still be preengraftment.  this was supported by a high host DNA content, which can be indicative of epithelial shedding 
+
+
+
+```{R}
+plot_ordination(mpa_phy_fmt, ordination = ordinate(mpa_phy_fmt, distance="bray",method = "PCoA"), type = "biplot")
+pdf_all <- mpa_phy_fmt %>% 
+  psmelt() %>% 
+  as_tibble() %>% 
+  mutate(
+    pre_fmt1 = ifelse(dfmt1 < 2, "pre-fmt", "post-fmt"),
+    pre_fmt2 = ifelse(dfmt2 < 2, "pre-fmt", "post-fmt"),
+    prefmt = ifelse(
+    is.na(dfmt1), "donor", 
+    ifelse(Comments=="patient1",  pre_fmt2 ,  pre_fmt1
+    ))) %>%
+  mutate(prefmt = factor(prefmt, levels=c("pre-fmt", "post-fmt", "donor"), ordered = TRUE))
+
+pldf <- pdf_all %>% select(Sample, Comments, prefmt, InvSimpson, taxumap1species ,  taxumap2species) %>% distinct()
+ggplot(pldf, aes(x=prefmt, y =InvSimpson)) + 
+  geom_boxplot(outlier.colour = NA) + 
+  stat_compare_means(comparisons = list(c("pre-fmt", "post-fmt"),c("donor", "post-fmt"),c("pre-fmt", "donor") ))+ 
+  geom_jitter(aes(color=Comments), size=3, width = .1)
+
+ggplot(pldf, aes(x=taxumap1species, y =taxumap2species, color=prefmt)) + 
+  geom_point( size=3) + stat_ellipse()
+
+
+pdata_phylum <-   subset_taxa(
+  tax_glom(
+    mpa_phy_fmt %>% transform_sample_counts(~ . / sum(.)), "Phylum"), 
+  Phylum == "Proteobacteria") %>% 
+  psmelt() %>% 
+  left_join(pldf %>% select(Sample, prefmt))
+
+ggplot(pdata_phylum, aes(x=prefmt, y=Abundance)) + 
+  geom_boxplot(outlier.colour = NA) + 
+  stat_compare_means(comparisons = list(c("pre-fmt", "post-fmt"),c("donor", "post-fmt"),c("pre-fmt", "donor") ))+ 
+  geom_jitter(aes(color=Comments), size=3, width = .1)
+  
+
+
+
+
+library(vegan)
+perm <- adonis2(otu_table(mpa_phy_fmt) %>% t() ~ prefmt, data=pldf, permutations=99, method = "bray")
+ano <- anosim(otu_table(mpa_phy_fmt) %>% t(), grouping = pldf$prefmt)
+
+source("https://raw.githubusercontent.com/pmartinezarbizu/pairwiseAdonis/master/pairwiseAdonis/R/pairwise.adonis2.R")
+pairwise.adonis2(otu_table(mpa_phy_fmt) %>% t() ~ prefmt, data=pldf, permutations=99, method = "bray")
+
+
+mod <- rda(otu_table(mpa_phy_fmt) %>% t(), scale = TRUE)
+biplot(mod, scaling = "symmetric")
+
+
+
+
+library(ggbiplot)
+
+
+otus <- otu_table(mpa_phy_fmt)
+rownames(otus) <- tax_table(mpa_phy_fmt)[, 'Species']
+tax_matrix <- otus %>% t() %>% as.data.frame() %>%  as.matrix()
+tax_matrix <- tax_matrix[, !colSums(tax_matrix) == 0]
+fmt.pca <- prcomp(tax_matrix, scale. = TRUE)
+
+ggplot(as.data.frame(fmt.pca$x) %>% rownames_to_column("Sample") %>% left_join(pldf), aes(x=PC1, y=PC2, color=prefmt)) + geom_point() + stat_ellipse()
+ggbiplot(fmt.pca, obs.scale = 1, var.scale = 1,
+  groups = pldf$prefmt, ellipse = TRUE, circle = TRUE) +
+  scale_color_discrete(name = '') +
+  theme(legend.direction = 'horizontal', legend.position = 'top')
+
+
+
+
+
+
+
+
+
+
+
+maaslin_fmt_results <- Maaslin2::Maaslin2(input_data=tax_matrix, input_metadata=pldf %>% mutate(prefmt=factor(prefmt, ordered = FALSE)) %>% column_to_rownames("Sample"), min_abundance = 0, min_prevalence = 0, reference="prefmt,pre-fmt", fixed_effects = "prefmt","pre-fmt-maaslin-associations")
+
+
+
+```
