@@ -21,7 +21,8 @@ colitis_grades <- c( "No colitis", "Colitis Grade 1-2", "Colitis Grade 3")
 
 pdata <- tax_glom(mpa_phy_colitis, "Genus") %>% 
   transform_sample_counts(~ . / sum(.)) %>%
-  phy_to_df() %>%  
+  psmelt() %>% 
+  dplyr::rename(.abundance=Abundance, .otu=OTU) %>% 
   left_join(asv_blast_color_genus, by = c("Genus" = "genus")) %>%
   filter(case %in% c("Colitis", "No colitis")) %>% 
   mutate(grade_coded = factor(case_when(
@@ -116,7 +117,8 @@ pdata_phylum <-   subset_taxa(
   tax_glom(
     mpa_phy_colitis %>% transform_sample_counts(~ . / sum(.)), "Phylum"), 
   Phylum == "Proteobacteria") %>% 
-  phy_to_df()
+  psmelt() %>% 
+  dplyr::rename(.abundance=Abundance, .otu=OTU) 
                                            
 stat.test <- pdata_phylum %>% 
   wilcox_test(comparisons = comparisons, 
@@ -125,7 +127,7 @@ stat.test <- pdata_phylum %>%
   add_xy_position(fun="mean_ci") %>% 
   mutate(p.adj.round = round(p.adj, 4))
 
-these_
+
 (p_proteo <- pdata_phylum %>% ggplot(aes(x=case, y=log10(.abundance))) + 
   geom_boxplot(outlier.colour = NA) + 
   geom_jitter(aes(color=case), height = 0, width = .2) +

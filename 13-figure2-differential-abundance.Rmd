@@ -301,13 +301,13 @@ genera_of_interest <- colnames(input_genus)
 
 # unpack levels of taxonomy
 hierachical_relab_pre <- bind_rows(
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Kingdom") %>% phy_to_df(),
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Phylum") %>% phy_to_df(),
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Class") %>% phy_to_df(),
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Order") %>% phy_to_df(),
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Family") %>% phy_to_df(),
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Genus") %>% phy_to_df(),
-  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Species") %>% phy_to_df(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Kingdom") %>% psmelt(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Phylum") %>% psmelt(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Class") %>% psmelt(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Order") %>% psmelt(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Family") %>% psmelt(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Genus") %>% psmelt(),
+  tax_glom(subset_taxa(mpa_phy_colitis, Genus %in% genera_of_interest), "Species") %>% psmelt(),
   ) %>% 
   mutate(clade_name_raw = sprintf("k__%s|p__%s|c__%s|o__%s|f__%s|g__%s|s__%s",
                                               Kingdom, Phylum, Class, 
@@ -321,45 +321,45 @@ hierachical_relab_pre <- bind_rows(
   mutate(clade_name = gsub("\\|.__NA$", "", clade_name))      # clean up Kingdom NAs
 
 # sanity check values; sums should all be the same
-hierachical_relab_pre %>% filter(is.na(Genus) & !is.na(Family)) %>% group_by(.sample) %>% summarize(thissum=sum(.abundance))  %>% summary(.$thissum)
-hierachical_relab_pre %>% filter(is.na(Family) & !is.na(Order)) %>% group_by(.sample) %>% summarize(thissum=sum(.abundance))  %>% summary(.$thissum)
-hierachical_relab_pre %>% filter(is.na(Order) & !is.na(Class)) %>% group_by(.sample) %>% summarize(thissum=sum(.abundance))  %>% summary(.$thissum)
+hierachical_relab_pre %>% filter(is.na(Genus) & !is.na(Family)) %>% group_by(Sample) %>% summarize(thissum=sum(Abundance))  %>% summary(.$thissum)
+hierachical_relab_pre %>% filter(is.na(Family) & !is.na(Order)) %>% group_by(Sample) %>% summarize(thissum=sum(Abundance))  %>% summary(.$thissum)
+hierachical_relab_pre %>% filter(is.na(Order) & !is.na(Class)) %>% group_by(Sample) %>% summarize(thissum=sum(Abundance))  %>% summary(.$thissum)
 
 
 hierachical_relab <- hierachical_relab_pre  %>% 
-  select(.sample, case, clade_name, .abundance) %>% 
-  arrange(.sample, clade_name)
+  select(Sample, case, clade_name, Abundance) %>% 
+  arrange(Sample, clade_name)
 
   
 hierachical_relab %>% 
   filter(case=="Colitis" | case=="nonIBD") %>% 
-  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  pivot_wider(names_from = "clade_name", values_from = "Abundance",values_fill=0, values_fn=sum) %>%
   t() %>% 
   write.table(file.path(lefse_dir, "lefse_all_colitis_nonIBD.txt"),sep="\t",quote = F,col.names = F)
 
 hierachical_relab %>% 
   filter(case=="Colitis" | case=="CD") %>% 
-  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>% 
+  pivot_wider(names_from = "clade_name", values_from = "Abundance",values_fill=0, values_fn=sum) %>% 
   t() %>% 
   write.table(file.path(lefse_dir, "lefse_all_colitis_CD.txt"),sep="\t",quote = F,col.names = F)
 
 hierachical_relab %>% 
   filter(case=="Colitis" | case=="UC") %>% 
-  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  pivot_wider(names_from = "clade_name", values_from = "Abundance",values_fill=0, values_fn=sum) %>%
   t() %>% 
   write.table(file.path(lefse_dir, "lefse_all_colitis_UC.txt"),sep="\t",quote = F,col.names = F)
 
 hierachical_relab %>% 
   filter(case=="Colitis" | case=="No colitis") %>% 
   mutate(case=gsub(" ", "_", case)) %>% 
-  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  pivot_wider(names_from = "clade_name", values_from = "Abundance",values_fill=0, values_fn=sum) %>%
   t() %>% 
   write.table(file.path(lefse_dir, "lefse_all_colitis_NoColitis.txt"),sep="\t",quote = F,col.names = F)
 
 hierachical_relab %>% 
   filter(case %in% c("Colitis", "No colitis", "nonIBD")) %>% 
   mutate(case=gsub(" ", "_", case)) %>% 
-  pivot_wider(names_from = "clade_name", values_from = ".abundance",values_fill=0, values_fn=sum) %>%
+  pivot_wider(names_from = "clade_name", values_from = "Abundance",values_fill=0, values_fn=sum) %>%
   t() %>% 
   write.table(file.path(lefse_dir, "lefse_all_colitis_NoColitis_nonIBD.txt"),sep="\t",quote = F,col.names = F)
 
