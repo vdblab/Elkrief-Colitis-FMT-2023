@@ -30,7 +30,6 @@ dir.create(figsdir, showWarnings = FALSE)
 
 comparisons=list(c("Colitis", "No colitis"), c("Colitis", "nonIBD"), c("Colitis", "UC"), c("Colitis", "CD"), c("No colitis", "nonIBD"), c("nonIBD", "UC"), c("nonIBD", "CD"), c("UC", "CD"))
 
-#comparisons=list(c("Colitis", "nonIBD-symptomatic"), c("Colitis", "nonIBD-asymptomatic"), c("Colitis", "UC"), c("Colitis", "CD"), c("nonIBD", "UC"), c("nonIBD", "UC"), c("nonIBD", "CD"), c("nonIBD", "CD"), c("UC", "CD"))
 
 #FIGURE1
 #Case vs metaphlan alpha div 
@@ -56,7 +55,7 @@ p1b_alpha_species <- ggplot(sample_data(mpa_phy_colitis), aes(x=case, y=InvSimps
      scale_y_continuous(breaks = alpha_breaks) +
   coord_cartesian(ylim = c(1, 30)) +
  xlab("Group") +
-  ylab("Diversity (Metaphlan species alpha div)") +
+  ylab("Diversity (Metaphlan species)") +
   theme(legend.position = "none")
 
 ggsave(p1b_alpha_species,  filename = file.path(figsdir, "species_alpha_by_case_group.pdf"), width = 9, height=6,

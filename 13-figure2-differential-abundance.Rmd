@@ -246,31 +246,6 @@ for (i in 1:length(datasets)){
 }  
   
 
- 
-# # make bad volcano plots
-# ggplot(all_maaslin_res %>%
-#          filter(qval < qval_threshold ) %>%
-#          filter(metadata == "case") %>%
-#          mutate(lab = ifelse(qval < .05 & abs(coef) > .75, str_glue("{feature}-{value}"), "")) ,
-#        aes(x=coef, y=log(qval), label=lab, color=value)) + geom_point()  + 
-#   geom_hline(yintercept = log(.05), linetype="dashed")  +
-#   geom_vline(xintercept = 0, color="black") + 
-#   scale_y_reverse() + 
-#   geom_text_repel(max.overlaps = 50) +theme_classic()
-
-# ggplot(all_maaslin_res %>%
-#          filter(qval < .05 ) %>%
-#          filter(metadata == "case") %>%
-#          mutate(lab = ifelse(qval < .05 & abs(coef) > .75, str_glue("{feature}"), "")) ,
-#        aes(x=coef, y=log(qval), label=lab, color=value)) + geom_point()  + 
-#   geom_hline(yintercept = log(.05), linetype="dashed")  +
-#   geom_vline(xintercept = 0, color="black") + 
-#   scale_y_reverse() + 
-#   geom_text_repel(max.overlaps = 50) +theme_classic() +
-#   facet_wrap(~value)
-
-
-
 
 ```
 
@@ -282,7 +257,6 @@ lefse_dir <- file.path(results_dir, "lefse")
 dir.create(lefse_dir, showWarnings = FALSE)
 #Lefse
 
-#LEfSe - Object containing all 
 
 library(data.table)
 
@@ -369,7 +343,7 @@ hierachical_relab %>%
 
 
 ### Running Lefse
-```{r 13-figure2-differential-abundance-5 }
+```{r 13-figure2-differential-abundance-5, eval=system("which docker") == 0 }
 # encoding "subject" as 1, the sample column, as these are run on 1-sample-per-person.  Lefse throws index errors if you try to encode it with -1 as described in the help.
 # The -v $PWD binds the current working directory to the docker container so it can read and write to your file system
 
@@ -460,4 +434,7 @@ for (dataset in c(file.path(lefse_dir, "lefse_all_colitis_nonIBD.txt"), file.pat
 
 
 
+```
+```{r 13-figure2-differential-abundance-6, eval=system("which docker") == 1 }
+warning("skipping lefse analysis; please ensure that the docker executable is in your system PATH")
 ```

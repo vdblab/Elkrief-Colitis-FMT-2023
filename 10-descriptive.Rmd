@@ -13,11 +13,11 @@ library(tidyverse)
 library(gtsummary)
 library(speedyseq)
 results_dir <- paste0(Sys.Date(), "_results")
-dir.create(results_dir)
+dir.create(results_dir, showWarnings = FALSE)
 
 ```
 
-# descriptive analyses
+# Descriptive analyses
 ## Cohort Summary
 ```{r 10-descriptive-2 }
 these_names = c(names(msk_tracker), names(hmp_tracker)) %>% unique()

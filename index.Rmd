@@ -25,3 +25,11 @@ snakemake --profile ~/GitHub/vdblab-pipelines/msk-lsf/ --directory /data/brinkvd
 ## Data preprocessing
 
 The `prepare-data.R` script contains the code to access internal MSK resources to create the phyloseq objects used in this analysis.  This script must be executed first, and it will create a file called `clean_phy_dataset.Rdata` which is used by the subsequent Rmd notebooks.  All analysis results are put in a dated results folder.
+
+
+## Prerequisites and installation
+### R packages
+We use [renv][https://rstudio.github.io/renv/articles/renv.html] to manage packages; install with `install.packages("renv")`.  After cloning this repo, run `renv::restore()` to install the required packages.
+
+### System packages
+We use docker to run the LefsE analysis. The code chunks invoking docker will first check whether `docker` is in your system path.  Follow [these instructions][https://docs.docker.com/engine/install/] to install docker.
