@@ -15,7 +15,7 @@ knead_and_meta <- sample_data(mpa_phy_fmt) %>%
   as_tibble() %>% 
   mutate(
     first_samp = min(Delta_date2, na.rm = TRUE),
-    order_delta=ifelse(is.na(dfmt1), first_samp- (100/(row_number())), dfmt1)
+    order_delta=ifelse(is.na(dfmt1), first_samp - (100/(row_number())), dfmt1)
   )
 
 

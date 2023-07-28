@@ -74,15 +74,15 @@ source("https://raw.githubusercontent.com/pmartinezarbizu/pairwiseAdonis/master/
 pairwise.adonis2(otu_table(mpa_phy_fmt) %>% t() ~ prefmt, data=pldf, permutations=99, method = "bray")
 
 
-mod <- rda(otu_table(mpa_phy_fmt) %>% t(), scale = TRUE)
+mod <- vegan::rda(otu_table(mpa_phy_fmt) %>% t(), scale = TRUE)
 biplot(mod, scaling = "symmetric")
 
 
 
-
-library(ggbiplot)
-
-
+# This is commented out because it loads plyr which breaks other bits of code involving
+# dplyr verbs
+# source("https://raw.githubusercontent.com/vqv/ggbiplot/master/R/ggbiplot.r")
+# 
 otus <- otu_table(mpa_phy_fmt)
 rownames(otus) <- tax_table(mpa_phy_fmt)[, 'Species']
 tax_matrix <- otus %>% t() %>% as.data.frame() %>%  as.matrix()
@@ -90,10 +90,10 @@ tax_matrix <- tax_matrix[, !colSums(tax_matrix) == 0]
 fmt.pca <- prcomp(tax_matrix, scale. = TRUE)
 
 ggplot(as.data.frame(fmt.pca$x) %>% rownames_to_column("Sample") %>% left_join(pldf), aes(x=PC1, y=PC2, color=prefmt)) + geom_point() + stat_ellipse()
-ggbiplot(fmt.pca, obs.scale = 1, var.scale = 1,
-  groups = pldf$prefmt, ellipse = TRUE, circle = TRUE) +
-  scale_color_discrete(name = '') +
-  theme(legend.direction = 'horizontal', legend.position = 'top')
+# ggbiplot(fmt.pca, obs.scale = 1, var.scale = 1,
+#   groups = pldf$prefmt, ellipse = TRUE, circle = TRUE) +
+#   scale_color_discrete(name = '') +
+#   theme(legend.direction = 'horizontal', legend.position = 'top')
 
 
 

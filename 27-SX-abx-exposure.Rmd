@@ -10,7 +10,6 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 library(speedyseq)
 library(tidyverse)
-library(vdbR)
 theme_set(theme_bw())
 load("clean_phy_dataset.RData")
 
@@ -54,7 +53,6 @@ abx_group_tbl_data <- abx_anno %>%
  abx_group_tbl_data %>%  select(-anonymized_id) %>% tbl_summary(by = case)   
  
  # write out colitis metadata
-write.csv(sample_data(mpa_phy_colitis) %>% as_tibble() %>%  select(anonymized_id, .sample, case ) %>% left_join(colitis_metadata %>% select( mrn, anonymized_id) %>% distinct() ), file = "colitis_noColitis_sample_metadata.csv")
 write.csv(sample_data(mpa_phy_fmt) %>% as_tibble() %>%  select(Comments, .sample ), file = "fmt_sample_metadata.csv")
 
 ```

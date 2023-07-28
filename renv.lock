@@ -221,23 +221,6 @@
         "bitops"
       ]
     },
-    "RPostgres": {
-      "Package": "RPostgres",
-      "Version": "1.4.4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "c593ecb8dbca9faf3906431be610ca28",
-      "Requirements": [
-        "DBI",
-        "Rcpp",
-        "bit64",
-        "blob",
-        "hms",
-        "lubridate",
-        "plogr",
-        "withr"
-      ]
-    },
     "RSpectra": {
       "Package": "RSpectra",
       "Version": "0.16-1",
@@ -289,16 +272,6 @@
       "git_last_commit_date": "2021-10-26",
       "Hash": "720badd4eb76a481fb97d65e08dc67f0",
       "Requirements": []
-    },
-    "Rtsne": {
-      "Package": "Rtsne",
-      "Version": "0.15",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "f153432c4ca15b937ccfaa40f167c892",
-      "Requirements": [
-        "Rcpp"
-      ]
     },
     "S4Vectors": {
       "Package": "S4Vectors",
@@ -1616,19 +1589,6 @@
         "yaml"
       ]
     },
-    "labdsv": {
-      "Package": "labdsv",
-      "Version": "2.0-1",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "0b41e3be7b5478480bdcb793422f83ec",
-      "Requirements": [
-        "MASS",
-        "Rtsne",
-        "cluster",
-        "mgcv"
-      ]
-    },
     "labeling": {
       "Package": "labeling",
       "Version": "0.4.2",
@@ -2136,14 +2096,6 @@
         "rstudioapi",
         "withr"
       ]
-    },
-    "plogr": {
-      "Package": "plogr",
-      "Version": "0.2.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "09eb987710984fc2905c7129c7d85e65",
-      "Requirements": []
     },
     "pls": {
       "Package": "pls",
@@ -2906,26 +2858,6 @@
         "glue",
         "lifecycle",
         "rlang"
-      ]
-    },
-    "vdbR": {
-      "Package": "vdbR",
-      "Version": "0.2.0",
-      "Source": "Bioconductor",
-      "Hash": "06dcb6f44e241e924e5bb63b641bcb98",
-      "Requirements": [
-        "Biostrings",
-        "DBI",
-        "RPostgres",
-        "Rtsne",
-        "ape",
-        "data.table",
-        "dplyr",
-        "labdsv",
-        "magrittr",
-        "phyloseq",
-        "tibble",
-        "tidyr"
       ]
     },
     "vegan": {
