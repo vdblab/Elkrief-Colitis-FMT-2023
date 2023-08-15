@@ -86,6 +86,83 @@ sample_data(mpa_phy_colitis) %>%
 
   bold_labels()
 
+sample_data(mpa_phy_colitis) %>% 
+  as_tibble() %>%  
+  filter(!is.na(case)) %>% 
+  mutate(case=as.character(case)) %>% 
+  filter(case=="Colitis" | case=="No colitis") %>% 
+  mutate(cancer_type_coded=case_when(cancer_type=="Non-small cell lung cancer" ~"Thoracic malignancy",
+                                     cancer_type=="Adenocarcinoma" ~"Thoracic malignancy",
+                                      cancer_type=="Endometrial" ~ "Gynecologic malignancy",
+                                      cancer_type=="Melanoma" ~ "Melanoma",
+                                      cancer_type=="Esophageal" ~ "Gastro-intestinal malignancy",
+                                      cancer_type=="Lymphoma" ~ "Hematologic malignancy",
+                                      cancer_type=="Ovarian" ~ "Gynecologic malignancy",
+                                      cancer_type=="Renal" ~ "Genito-urinary malignancy",
+                                      cancer_type=="Sarcoma" ~ "Sarcoma",
+                                      cancer_type=="Bladder" ~ "Genito-urinary malignancy",
+                                      cancer_type=="Mesothelioma" ~ "Thoracic malignancy",
+                                      cancer_type=="Small cell lung cancer" ~ "Thoracic malignancy",
+                                      cancer_type=="Breast" ~ "Breast cancer",
+                                      cancer_type=="Carcinoma unknown primary" ~ "Carcinoma unknown primary",
+                                      cancer_type=="Colon" ~ "Gastro-intestinal malignancy",
+                                      cancer_type=="Gastric" ~ "Gastro-intestinal malignancy",
+                                      cancer_type=="Gliobastoma" ~ "CNS malignancy",
+                                      cancer_type=="Hepatocellular carcinoma" ~ "Gastro-intestinal malignancy",
+                                      cancer_type=="Rectal" ~ "Gastro-intestinal malignancy",
+                                      cancer_type=="Pancreatic" ~ "Gastro-intestinal malignancy",
+                                      cancer_type=="Urothelial" ~ "Genito-urinary malignancy",
+                                     cancer_type=="Germ cell tumor" ~"Genito-urinary malignancy")) %>% 
+  mutate(cancer_stage_coded=case_when(cancer_stage=="1"~ "Early stage",
+                                      cancer_stage=="2" ~ "Early stage",
+                                      cancer_stage=="3" ~ "Locally advanced or late stage",
+                                      cancer_stage=="4"~ "Locally advanced or late stage")) %>% 
+  mutate(immunotherapy_type_coded=case_when(immunotherapy_type=="Pembrolizumab"~ "Single-agent PD-1 or PD-L1 inhibitor",
+                                            immunotherapy_type=="Atezolizumab"~ "Single-agent PD-1 or PD-L1 inhibitor",
+                                            immunotherapy_type=="Avelumab"~ "Single-agent PD-1 or PD-L1 inhibitor",
+                                            immunotherapy_type=="Durvalumab"~ "Single-agent PD-1 or PD-L1 inhibitor",
+                                            immunotherapy_type=="Duvarulumab" ~ "Single-agent PD-1 or PD-L1 inhibitor",
+                                            immunotherapy_type=="Nivolumab"~ "Single-agent PD-1 or PD-L1 inhibitor",
+                                            immunotherapy_type=="Ipilimumab" ~"Single-agent CTLA-4 inhibitor",
+                                            immunotherapy_type=="Ipilimumab + Nivolumab" ~ "Combined anti-PD-1 and CTLA-4 inhibitors",
+                                            immunotherapy_type=="Durvalumab + Tremelimumab" ~ "Combined anti-PD-1 and CTLA-4 inhibitors",
+                                            immunotherapy_type=="Pembrolizumab + Lenvatinib" ~ "Other combination regimen",
+                                            immunotherapy_type=="Atezolizumab + Bevacizumab" ~ "Other combination regimen",
+                                            immunotherapy_type=="Atezolizumab + Carboplatin + Etoposide" ~ "Other combination regimen",
+                                            immunotherapy_type=="Durvalumab + Oxaliplatin + Capecitabine" ~ "Other combination regimen",
+                                            immunotherapy_type=="Durvalumab + Ramucirumab" ~ "Other combination regimen", 
+                                            immunotherapy_type=="Nivolumab + Brentuximab" ~ "Other combination regimen",
+                                            immunotherapy_type=="Nivolumab + Sitravatinib" ~ "Other combination regimen",
+                                            immunotherapy_type=="Panitumumab + Lenvatinib + Pembrolizumab" ~ "Other combination regimen",
+                                            immunotherapy_type=="Pembrolizumab + Carboplain + Pemetrexed" ~"Other combination regimen")) %>% 
+  mutate(steroids_coded=ifelse(steroids=="0", "No", "Yes")) %>% 
+select(case, age, sex, cancer_type_coded, cancer_stage_coded, immunotherapy_type_coded, steroids_coded) %>% 
+  tbl_summary(by="case", sort = list(everything() ~ "frequency"), label=list(age ~ "Age",
+                                                                  sex ~ "Sex",
+                                                                  cancer_type_coded ~ "Cancer type",
+                                                                  cancer_stage_coded ~ "Cancer stage",
+                                                                  immunotherapy_type_coded ~ "Immunotherapy type",
+                                                                  steroids_coded ~ "Corticosteroids used for colitis")) %>%
+
+  bold_labels()
+
+#Grade
+sample_data(mpa_phy_colitis) %>% 
+  as_tibble() %>%  
+  filter(!is.na(case)) %>% 
+  mutate(case=as.character(case)) %>% 
+  filter(case=="Colitis" | case=="No colitis") %>% 
+  select(grade_coded, case) %>% 
+  tbl_summary(by="case")
+
+#Colonoscopy and Mayo grade
+sample_data(mpa_phy_colitis) %>% 
+  as_tibble() %>%  
+  filter(!is.na(case)) %>% 
+  mutate(case=as.character(case)) %>% 
+  filter(case=="Colitis" | case=="No colitis") %>% 
+  select(mayo_grade_coded, case) %>% 
+  tbl_summary(by="case")
 
 
 ```

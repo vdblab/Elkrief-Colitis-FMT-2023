@@ -44,6 +44,8 @@ pldf <- pdf_all %>% select(Sample, Comments, prefmt, InvSimpson, taxumap1species
 ggplot(pldf, aes(x=prefmt, y =InvSimpson)) + 
   geom_boxplot(outlier.colour = NA) + 
   stat_compare_means(comparisons = list(c("pre-fmt", "post-fmt"),c("donor", "post-fmt"),c("pre-fmt", "donor") ))+ 
+  xlab("timepoint") +
+  ylab("alpha diversity (invsimpson)")+
   geom_jitter(aes(color=Comments), size=3, width = .1)
 
 ggplot(pldf, aes(x=taxumap1species, y =taxumap2species, color=prefmt)) + 
@@ -60,6 +62,8 @@ pdata_phylum <-   subset_taxa(
 ggplot(pdata_phylum, aes(x=prefmt, y=Abundance)) + 
   geom_boxplot(outlier.colour = NA) + 
   stat_compare_means(comparisons = list(c("pre-fmt", "post-fmt"),c("donor", "post-fmt"),c("pre-fmt", "donor") ))+ 
+  xlab("timepoint") +
+  ylab("proteobacteria (relative abundance)")+
   geom_jitter(aes(color=Comments), size=3, width = .1)
   
 
@@ -73,10 +77,24 @@ ano <- anosim(otu_table(mpa_phy_fmt) %>% t(), grouping = pldf$prefmt)
 source("https://raw.githubusercontent.com/pmartinezarbizu/pairwiseAdonis/master/pairwiseAdonis/R/pairwise.adonis2.R")
 pairwise.adonis2(otu_table(mpa_phy_fmt) %>% t() ~ prefmt, data=pldf, permutations=99, method = "bray")
 
+rda_data <- otu_table(mpa_phy_fmt) %>% t()
+colnames(rda_data) <-  tax_table(mpa_phy_fmt) %>% as_tibble() %>% pull(Species)
+rownames(rda_data) <-  sample_data(mpa_phy_fmt) %>% as_tibble() %>% pull(label)
+mod <- vegan::rda(rda_data, scale = TRUE)
+narrows <- 30
 
-mod <- vegan::rda(otu_table(mpa_phy_fmt) %>% t(), scale = TRUE)
-biplot(mod, scaling = "symmetric")
-
+top_bugs <- sort(decreasing = TRUE, colSums(rda_data ))[1:narrows]
+top_bugs_indexes <- match(names(top_bugs), colnames(rda_data))
+mod$colsum <- mod$colsum[top_bugs_indexes]
+mod$Ybar <- mod$Ybar[,top_bugs_indexes]
+mod$CA$v <- mod$CA$v[top_bugs_indexes, ]
+mod_summary<- summary(mod)
+axis_percents <- mod_summary$cont$importance[2, 1:2 ] * 100
+pdf(file = "./tmp_rda_plot.pdf", width = 12, height = 12)
+biplot(mod, scaling = "symmetric", type="text",
+       xlab=paste0("RDA1 (", round(axis_percents[1], 1), "%)"), 
+       ylab=paste0("RDA2 (", round(axis_percents[2], 1), "%)"), max.overlaps=Inf, labSize = 20) 
+dev.off()
 
 
 # This is commented out because it loads plyr which breaks other bits of code involving
@@ -105,7 +123,7 @@ ggplot(as.data.frame(fmt.pca$x) %>% rownames_to_column("Sample") %>% left_join(p
 
 
 
-maaslin_fmt_results <- Maaslin2::Maaslin2(input_data=tax_matrix, input_metadata=pldf %>% mutate(prefmt=factor(prefmt, ordered = FALSE)) %>% column_to_rownames("Sample"), min_abundance = 0, min_prevalence = 0, reference="prefmt,pre-fmt", fixed_effects = "prefmt","pre-fmt-maaslin-associations")
+maaslin_fmt_results <- Maaslin2::Maaslin2(input_data=tax_matrix, input_metadata=pldf %>% mutate(prefmt=factor(prefmt, ordered = FALSE)) %>% column_to_rownames("Sample"), min_abundance = 0, min_prevalence = 0, reference="prefmt,donor", fixed_effects = "prefmt","pre-fmt-maaslin-associations_ref_donor")
 
 
 

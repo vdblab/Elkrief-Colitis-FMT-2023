@@ -118,7 +118,10 @@ pdata_phylum <-   subset_taxa(
     mpa_phy_colitis %>% transform_sample_counts(~ . / sum(.)), "Phylum"), 
   Phylum == "Proteobacteria") %>% 
   psmelt() %>% 
-  dplyr::rename(.abundance=Abundance, .otu=OTU) 
+  dplyr::rename(.abundance=Abundance, .otu=OTU) %>%  mutate(response_to_ici_coded_coded=case_when(response_to_ici_coded=="PR"~"responder",
+                                                  response_to_ici_coded=="CR"~"responder",
+                                                  response_to_ici_coded=="PD"~ "non-responder",
+                                                  response_to_ici_coded=="SD" ~ "non-responder")) 
                                            
 stat.test <- pdata_phylum %>% 
   wilcox_test(comparisons = comparisons, 
@@ -145,6 +148,47 @@ stat.test <- pdata_phylum %>%
     expand = expansion(mult = c(0.01, 0.1))) +
       theme_classic() )
 ggsave(p_proteo,
+       filename = file.path(figsdir,  "2c_proteobactera_by_group.pdf"), width = 9, height = 6)
+
+
+stat.test.byresponse <- pdata_phylum %>% 
+  filter(case=="Colitis" | case=="No colitis") %>% 
+    mutate(case=as.character(case))   %>% 
+  group_by(case) %>%
+  wilcox_test(   .abundance ~ response_to_ici_coded_coded) %>%
+  adjust_pvalue(method = "BH")  %>%
+  add_xy_position(fun="mean_ci") %>% 
+  mutate(p.adj.round = round(p.adj, 4))
+
+
+(p_proteo_orr <- pdata_phylum %>% 
+    filter(case=="Colitis" | case=="No colitis") %>% 
+    mutate(case=as.character(case)) %>% 
+    filter(.abundance>0) %>% 
+    filter(!is.na(response_to_ici_coded_coded)) %>% 
+    ggplot(aes(x=response_to_ici_coded_coded, y=log10(.abundance)))+
+    facet_wrap(~case) +
+  geom_boxplot(outlier.colour = NA) + 
+  geom_jitter(aes(color=response_to_ici_coded_coded), height = 0, width = .2) +
+  geom_jitter(data=pdata_phylum %>% 
+                filter(.abundance == 0) %>%
+                filter(case=="Colitis" | case=="No colitis") %>% 
+    mutate(case=as.character(case)) %>% 
+    filter(!is.na(response_to_ici_coded_coded)) %>% 
+                mutate(.abundance=.00001), height = 0, width = .2, color="grey") +
+  stat_pvalue_manual(size = 3,
+    stat.test.byresponse, label = "p", tip.length = 0.01,
+    hide.ns = FALSE
+  ) + 
+  labs(y = "Relative abundance of Proteobacteria",
+       x = "") +
+  scale_colour_discrete("Group")+
+  scale_y_continuous(
+    breaks=log10(c(.0001, .001, .01,.1,1)), labels=c(.0001, .001, .01,.1,1),
+    expand = expansion(mult = c(0.01, 0.1))) +
+      theme_classic() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)))
+ggsave(p_proteo_orr,
        filename = file.path(figsdir,  "2c_proteobactera_by_group.pdf"), width = 9, height = 6)
 
 ```
