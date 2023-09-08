@@ -1,5 +1,4 @@
 ---
-title: "Signatures of FMT"
 output: html_document
 date: "2023-07-21"
 editor_options: 
@@ -20,9 +19,11 @@ theme_set(theme_classic())
 ```
 
 
-# Caveats and justifications
- - pt 1 first fmt did not engraft, so we referenced pre/post to the second date
- - we considered samples collected the day after FMT to still be preengraftment.  this was supported by a high host DNA content, which can be indicative of epithelial shedding 
+# Signatures of FMT
+Note:
+
+ - Patient 1's first FMT did not engraft, so we referenced pre/post engraftment relative to the second FMT date
+ - we considered samples collected the day after FMT to still be preengraftment.This was supported by a high host DNA content, which can be indicative of epithelial shedding. 
 
 
 

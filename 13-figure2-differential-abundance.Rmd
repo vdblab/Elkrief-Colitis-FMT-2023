@@ -1,5 +1,4 @@
 ---
-title: "Differential Abundance"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -343,11 +342,9 @@ hierachical_relab %>%
 
 
 ### Running Lefse
-```{r 13-figure2-differential-abundance-5, eval=system("which docker") == 0 }
+```{r 13-figure2-differential-abundance-5, eval=system("docker stats --no-stream") == 0 }
 # encoding "subject" as 1, the sample column, as these are run on 1-sample-per-person.  Lefse throws index errors if you try to encode it with -1 as described in the help.
 # The -v $PWD binds the current working directory to the docker container so it can read and write to your file system
-
-
 lefse_docker_image <- "ghcr.io/vdblab/lefse:1.1.2"
 for (dataset in c(
   file.path(lefse_dir, "lefse_all_colitis_nonIBD.txt"),
